@@ -3,6 +3,7 @@
 import sys
 import time
 import boto3
+import botocore
 import argparse
 import logging
 
@@ -34,26 +35,36 @@ def create_task_execution(
 
     client = session.client('datasync', region_name=region)
 
-    response = client.describe_task(
-        TaskArn=task_arn
-    )
+    try:
+        response = client.describe_task(
+            TaskArn=task_arn
+        )
+                
+    except botocore.exceptions.ClientError as e:
+        logging.error(e)
+        sys.exit(1)
 
     logging.info(response)
 
-    if includes_filter:
-        response = client.start_task_execution(
-            TaskArn=task_arn,
-            Includes=[
-                {
-                    'FilterType': 'SIMPLE_PATTERN',
-                    'Value': includes_filter
-                }
-            ]
-        )
-    else:
-        response = client.start_task_execution(
-            TaskArn=task_arn
-        )  
+    try:
+        if includes_filter:
+            response = client.start_task_execution(
+                TaskArn=task_arn,
+                Includes=[
+                    {
+                        'FilterType': 'SIMPLE_PATTERN',
+                        'Value': includes_filter
+                    }
+                ]
+            )
+        else:
+            response = client.start_task_execution(
+                TaskArn=task_arn
+            )  
+                
+    except botocore.exceptions.ClientError as e:
+        logging.error(e)
+        sys.exit(1)
 
     task_execution_arn = response['TaskExecutionArn']
 
