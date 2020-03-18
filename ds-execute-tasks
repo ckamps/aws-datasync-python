@@ -1,0 +1,108 @@
+#!/usr/bin/env python
+
+import sys
+import time
+import boto3
+import argparse
+import logging
+
+'''AWS DataSync Create and Monitor Task Execution
+
+This program creates a DataSync task execution and monitors it for completion.
+
+'''
+
+__version__ = '0.1'
+__author__ = '@author@'
+__email__ = '@email@'
+
+
+def create_task_execution(
+        task_arn,
+        includes_filter,
+        profile,
+        region):
+
+    '''
+        Create a new DataSync task execution and wait for it to complete
+    '''
+
+    if profile:
+      session = boto3.Session(profile_name=profile)
+    else:
+      session = boto3.Session()
+
+    client = session.client('datasync', region_name=region)
+
+    response = client.describe_task(
+        TaskArn=task_arn
+    )
+
+    logging.info(response)
+
+    if includes_filter:
+        response = client.start_task_execution(
+            TaskArn=task_arn,
+            Includes=[
+                {
+                    'FilterType': 'SIMPLE_PATTERN',
+                    'Value': includes_filter
+                }
+            ]
+        )
+    else:
+        response = client.start_task_execution(
+            TaskArn=task_arn
+        )  
+
+    task_execution_arn = response['TaskExecutionArn']
+
+    logging.info('task_executon_arn: ' + task_execution_arn)
+
+    response = client.describe_task_execution(
+        TaskExecutionArn=task_execution_arn
+    )
+
+    # Would be better to use the built-in waiter support in boto3
+
+    while response['Status'] not in ('SUCCESS', 'ERROR'):
+        logging.info(response['Status'])
+        time.sleep(5)
+        response = client.describe_task_execution(
+            TaskExecutionArn=task_execution_arn
+        )
+
+    logging.info(response['Status'])
+
+    logging.info(response)
+
+    return response['Status']
+
+
+def main(arguments):
+
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+        
+    parser.add_argument('--task_arn', required=True)
+    parser.add_argument('--includes_filter')
+    parser.add_argument('--profile')
+    parser.add_argument('--region',   default='us-east-2')
+
+    args = parser.parse_args(arguments)
+
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
+
+    print("Creating task execution for task ARN: " + args.task_arn)
+    account_id = create_task_execution(
+        args.task_arn,
+        args.includes_filter,
+        args.profile,
+        args.region)
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
