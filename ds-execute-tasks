@@ -97,8 +97,8 @@ def main(arguments):
         level=logging.INFO,
         datefmt='%Y-%m-%d %H:%M:%S')
 
-    print("Creating task execution for task ARN: " + args.task_arn)
-    account_id = create_task_execution(
+    logging.info("Creating task execution for task ARN: " + args.task_arn)
+    status = create_task_execution(
         args.task_arn,
         args.includes_filter,
         args.profile,
